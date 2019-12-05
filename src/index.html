@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width,initial-scale=1.0">
+	<meta name="theme-color" content="#000">
+	<link rel="icon" href=favicon.ico>
+	<title>Tracker</title>
+</head>
+<body>
+<noscript>
+	<strong>We're sorry but application doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+</noscript>
+
+<header class="header">
+	<div class="device" style="display: none;">
+		<select class="device__select"></select>
+	</div>
+	<div class="period">
+		<button type="button" class="period__control period__control--down"></button><!--
+		--><input type="date" class="period__date period__date--start" required="required" /><!--
+		--><input type="date" class="period__date period__date--end" required="required" /><!--
+		--><button type="button" class="period__control period__control--up"></button>
+	</div>
+</header>
+<div id="map"></div>
+<footer class="footer">
+	<div class="timeline">
+
+	</div>
+</footer>
+
+<div class="message message--notrack">
+	Нет данных
+</div>
+<div class="message message--location">
+
+</div>
+<script src=external-settings.js></script>
+</body>
+</html>
