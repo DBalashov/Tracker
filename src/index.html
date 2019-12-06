@@ -14,15 +14,28 @@
 </noscript>
 
 <header class="header">
-	<div class="device" style="display: none;">
-		<select class="device__select"></select>
+	<div class="device">
+		<div class="device__control device__item">
+			<div class="device__item-image"></div>
+			<div class="device__item-name"></div>
+		</div>
+		<div class="device__popup">
+			<ul class="device__tree">
+				<template id="device__item-template">
+					<li class="device__item">
+						<div class="device__item-image"></div>
+						<div class="device__item-name"></div>
+					</li>
+				</template>
+			</ul>
+		</div>
 	</div>
-	<div class="period">
+	<form class="period">
 		<button type="button" class="period__control period__control--down"></button><!--
-		--><input type="date" class="period__date period__date--start" required="required" /><!--
-		--><input type="date" class="period__date period__date--end" required="required" /><!--
+		--><input type="datetime-local" class="period__date period__date--start" required="required" /><!--
+		--><input type="datetime-local" class="period__date period__date--end" required="required" /><!--
 		--><button type="button" class="period__control period__control--up"></button>
-	</div>
+	</form>
 </header>
 <div id="map"></div>
 <footer class="footer">
