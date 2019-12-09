@@ -36,6 +36,11 @@ button {
 	cursor: pointer;
 }
 
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
 #map {
 	width: 100vw;
 	height: calc(100vh - 80px);
@@ -101,26 +106,9 @@ button {
 
 		&-image {
 			width: 18px;
-			height: 14px;
+			height: 18px;
 			margin-right: 4px;
-			background-position: center;
-
-			&--folder {
-				position: relative;
-				height: 10px;
-				margin-top: 4px;
-				background: #fcc203;
-
-				&:before {
-					content: "";
-					position: absolute;
-					left: 0;
-					top: -4px;
-					width: 14px;
-					height: 4px;
-					background: #fcc203;
-				}
-			}
+			text-align: center;
 		}
 
 		&-name {
@@ -206,9 +194,34 @@ button {
 }
 
 .timeline {
+	display: none;
+	position: relative;
 	flex: 1;
-	height: 10px;
-	background-image: repeating-linear-gradient(to right, #fff 0, #fff 1px, #0000 1px, #0000 40px);
+
+	&--visible {
+		display: block;
+	}
+
+	//flex: 1;
+	//height: 10px;
+	//background-image: repeating-linear-gradient(to right, #fff 0, #fff 1px, #0000 1px, #0000 40px);
+
+	&__status {
+		height: 8px;
+		background: #ccc;
+		cursor: pointer;
+	}
+
+	&__cursor {
+		position: absolute;
+		top: -2px;
+		height: 12px;
+		border-left: 1px solid #fff;
+
+		&--hover {
+			border-color: #ffc;
+		}
+	}
 }
 
 .message {

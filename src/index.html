@@ -16,14 +16,14 @@
 <header class="header">
 	<div class="device">
 		<div class="device__control device__item">
-			<div class="device__item-image"></div>
+			<div class="device__item-image"><img /></div>
 			<div class="device__item-name"></div>
 		</div>
 		<div class="device__popup">
 			<ul class="device__tree">
 				<template id="device__item-template">
 					<li class="device__item">
-						<div class="device__item-image"></div>
+						<div class="device__item-image"><img /></div>
 						<div class="device__item-name"></div>
 					</li>
 				</template>
@@ -36,11 +36,19 @@
 		--><input type="datetime-local" class="period__date period__date--end" required="required" /><!--
 		--><button type="button" class="period__control period__control--up"></button>
 	</form>
+	<div>
+		<select>
+			<option>2GIS</option>
+		</select>
+	</div>
 </header>
 <div id="map"></div>
 <footer class="footer">
 	<div class="timeline">
+		<div class="timeline__status">
 
+		</div>
+		<div class="timeline__cursor"></div>
 	</div>
 </footer>
 

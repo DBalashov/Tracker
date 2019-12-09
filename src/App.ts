@@ -8,10 +8,14 @@ export default class App {
 	private readonly url: string;
 	private readonly token: string;
 	private readonly schemaID: string;
+	private readonly refreshTime: number = 15000;
+	private refreshInterval: number = 0;
 	private id: string = '';
+	private data: IEnumDevices = {};
 	private device: AppDevice;
 	private period: AppPeriod;
 	private map: AppMap;
+	private timeline: AppTimeline;
 
 	constructor(config: any) {
 		this.serial = +config.Settings.serial;
@@ -19,33 +23,50 @@ export default class App {
 		this.token = config.Token;
 		this.schemaID = config.Organization.UID;
 
-		this.device = new AppDevice();
-
-		this.period = new AppPeriod((sd: Date, ed: Date) => {
-			this.refresh();
-		});
-
-		this.map = new AppMap();
+		this.device = new AppDevice(config.Urls.ImageCar, (id: string) => this.onChangeDevice(id));
+		this.period = new AppPeriod(() => this.refreshTrack());
+		this.map = new AppMap(config.Urls.ImageCar, (id: string) => this.onChangeDevice(id));
+		this.timeline = new AppTimeline((d: Date) => this.onChangePosition());
 
 		this.post('EnumDevices', { }, (r: IEnumDevicesResult) => {
-			this.device.setData(r);
-
-			// ---
-
-			const item = r.Items.find((i: any) => i.Serial === this.serial);
-
-			if ( ! item) {
-				console.error('Serial number not found');
-				return;
-			}
-
-			this.id = item.ID;
-
-			this.refresh();
+			this.data = this.device.setData(r);
+			const root: IDeviceItem = r.Groups.find((g: IDeviceItem) => g.ParentID === null) as IDeviceItem;
+			this.onChangeDevice(root.ID);
 		});
 	}
 
-	private refresh(): void {
+	private onChangeDevice(id: string): void {
+		if (this.id === id) return;
+
+		const item = this.data[id];
+
+		this.id = id;
+		this.device.setDevice(item);
+
+		if (typeof item.Serial === 'undefined') {
+			this.timeline.hide();
+			this.refreshPosition();
+		} else {
+			this.timeline.show();
+			this.refreshTrack();
+		}
+
+		clearInterval(this.refreshInterval);
+
+		this.refreshInterval = setInterval(() => {
+			if (typeof item.Serial === 'undefined') {
+				this.refreshPosition();
+			} else {
+				this.refreshTrack();
+			}
+		}, this.refreshTime);
+	}
+
+	private onChangePosition(): void {
+
+	}
+
+	private refreshTrack(): void {
 		const { sd, ed } = this.period.getDate();
 
 		this.post('GetTrack', {
@@ -58,11 +79,25 @@ export default class App {
 
 			if ( ! track || track.DT.length == 0) {
 				this.map.clear();
+				this.timeline.hide();
+				clearInterval(this.refreshInterval);
 				console.warn('Нет данных');
 				return;
 			}
 
-			this.map.buildTrack(track);
+			this.map.buildTrack(track, this.data[this.id]);
+			this.timeline.setData(track.DT);
+
+			// if watch location
+			this.timeline.setValue(new Date(track.DT[track.DT.length - 1]));
+		});
+	}
+
+	private refreshPosition(): void {
+		this.post('GetOnlineInfo', {
+			IDs: this.id
+		}, (r) => {
+			this.map.buildPositions(r, this.data)
 		});
 	}
 
@@ -104,4 +139,8 @@ export interface IDeviceItem {
 	Name: string;
 	Serial?: number;
 	ImageColored?: string;
+}
+
+export interface IEnumDevices {
+	[key: string]: IDeviceItem
 }
