@@ -9,7 +9,8 @@ export default class App {
 	private readonly token: string;
 	private readonly schemaID: string;
 	private readonly refreshTime: number = 15000;
-	private refreshInterval: number = 0;
+	private refreshTimeout: number = 0;
+	private refreshActive: boolean = true;
 	private id: string = '';
 	private data: IEnumDevices = {};
 	private device: AppDevice;
@@ -24,9 +25,25 @@ export default class App {
 		this.schemaID = config.Organization.UID;
 
 		this.device = new AppDevice(config.Urls.ImageCar, (id: string) => this.onChangeDevice(id));
-		this.period = new AppPeriod(() => this.refreshTrack());
-		this.map = new AppMap(config.Urls.ImageCar, (id: string) => this.onChangeDevice(id));
-		this.timeline = new AppTimeline((d: Date) => this.onChangePosition());
+
+		this.period = new AppPeriod((sd: Date, ed: Date) => {
+			const d = new Date();
+			this.refreshActive = d.getFullYear() === ed.getFullYear() && d.getMonth() === ed.getMonth() && d.getDate() === ed.getDate();
+			this.refreshTrack();
+		});
+
+		this.map = new AppMap(
+			config.Urls.ImageCar,
+			(id: string) => this.onChangeDevice(id),
+			(d: Date) => {
+				this.onChangePosition(d);
+				this.timeline.setValue(d);
+			}
+		);
+
+		this.timeline = new AppTimeline((d: Date) => {
+			this.onChangePosition(d);
+		});
 
 		this.post('EnumDevices', { }, (r: IEnumDevicesResult) => {
 			this.data = this.device.setData(r);
@@ -36,6 +53,8 @@ export default class App {
 	}
 
 	private onChangeDevice(id: string): void {
+		this.message('notrack', false);
+
 		if (this.id === id) return;
 
 		const item = this.data[id];
@@ -44,30 +63,26 @@ export default class App {
 		this.device.setDevice(item);
 
 		if (typeof item.Serial === 'undefined') {
+			this.device.locationDisable();
+			this.period.disable();
 			this.timeline.hide();
 			this.refreshPosition();
 		} else {
+			this.device.locationEnable();
+			this.period.enable();
 			this.timeline.show();
 			this.refreshTrack();
 		}
-
-		clearInterval(this.refreshInterval);
-
-		this.refreshInterval = setInterval(() => {
-			if (typeof item.Serial === 'undefined') {
-				this.refreshPosition();
-			} else {
-				this.refreshTrack();
-			}
-		}, this.refreshTime);
 	}
 
-	private onChangePosition(): void {
-
+	private onChangePosition(d: Date): void {
+		const info = this.map.moveMarker(d);
 	}
 
 	private refreshTrack(): void {
 		const { sd, ed } = this.period.getDate();
+
+		clearTimeout(this.refreshTimeout);
 
 		this.post('GetTrack', {
 			IDs: this.id,
@@ -75,29 +90,43 @@ export default class App {
 			ED: this.fmtDT(ed),
 			tripSplitterIndex: -1
 		}, (r) => {
-			const track = r[this.id][0];
-
-			if ( ! track || track.DT.length == 0) {
+			if (r[this.id].length === 0 || ! r[this.id][0] || r[this.id][0].DT.length == 0) {
 				this.map.clear();
+				this.device.locationDisable();
+				this.period.disable();
 				this.timeline.hide();
-				clearInterval(this.refreshInterval);
-				console.warn('Нет данных');
+				this.message('notrack', true, 'Нет данных');
 				return;
 			}
 
-			this.map.buildTrack(track, this.data[this.id]);
+			const track = r[this.id][0];
+
+			let lastTime = this.timeline.getValue();
+
+			this.map.buildTrack(track, this.data[this.id], this.device.location);
+
 			this.timeline.setData(track.DT);
 
-			// if watch location
-			this.timeline.setValue(new Date(track.DT[track.DT.length - 1]));
+			if (this.device.location || lastTime === null) {
+				lastTime = new Date(track.DT[track.DT.length - 1]);
+			}
+
+			this.timeline.setValue(lastTime);
+
+			if (this.refreshActive) {
+				this.refreshTimeout = setTimeout(() => this.refreshTrack(), this.refreshTime);
+			}
 		});
 	}
 
 	private refreshPosition(): void {
+		clearTimeout(this.refreshTimeout);
+
 		this.post('GetOnlineInfo', {
 			IDs: this.id
 		}, (r) => {
-			this.map.buildPositions(r, this.data)
+			this.map.buildPositions(r, this.data, this.device.location);
+			this.refreshTimeout = setTimeout(() => this.refreshPosition(), this.refreshTime);
 		});
 	}
 
@@ -124,6 +153,16 @@ export default class App {
 			method: 'POST',
 			body: formData
 		}).then((r) => r.json().then(callback)).catch((r) => console.error(r));
+	}
+
+	private message(id: string, show: boolean, message?: string): void {
+		const m = document.querySelector('.message--' + id);
+
+		if (m === null) return;
+
+		m.classList[show ? 'add' : 'remove']('message--visible');
+
+		m.innerHTML = message ? message : '';
 	}
 }
 

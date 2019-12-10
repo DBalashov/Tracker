@@ -1,10 +1,13 @@
 export default class AppPeriod {
+	private readonly fieldset: HTMLFieldSetElement;
 	private sd: Date = new Date();
 	private ed: Date = new Date();
 	private callback: (sd: Date, ed: Date) => void;
 
 	constructor(callback: (sd: Date, ed: Date) => void) {
 		this.callback = callback;
+		this.fieldset = document.querySelector('.period__fieldset') as HTMLFieldSetElement;
+
 		const periodDown: HTMLElement = document.querySelector('.period__control--down') as HTMLElement;
 		const periodUp: HTMLElement = document.querySelector('.period__control--up') as HTMLElement;
 		const periodDateStart: HTMLInputElement = document.querySelector('.period__date--start') as HTMLInputElement;
@@ -84,6 +87,14 @@ export default class AppPeriod {
 			sd: this.sd,
 			ed: this.ed
 		};
+	}
+
+	public disable(): void {
+		this.fieldset.setAttribute('disabled', 'true');
+	}
+
+	public enable(): void {
+		this.fieldset.removeAttribute('disabled');
 	}
 }
 

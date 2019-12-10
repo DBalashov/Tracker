@@ -29,12 +29,19 @@
 				</template>
 			</ul>
 		</div>
+		<div class="device__location">
+			<button class="device__location-control device__location-control--active" title="Следить за изменением местоположения">
+				<i></i>
+			</button>
+		</div>
 	</div>
 	<form class="period">
-		<button type="button" class="period__control period__control--down"></button><!--
-		--><input type="datetime-local" class="period__date period__date--start" required="required" /><!--
-		--><input type="datetime-local" class="period__date period__date--end" required="required" /><!--
-		--><button type="button" class="period__control period__control--up"></button>
+		<fieldset class="period__fieldset" disabled="disabled">
+			<button type="button" class="period__control period__control--down"></button><!--
+			--><input type="datetime-local" class="period__date period__date--start" required="required" /><!--
+			--><input type="datetime-local" class="period__date period__date--end" required="required" /><!--
+			--><button type="button" class="period__control period__control--up"></button>
+		</fieldset>
 	</form>
 	<div>
 		<select>
@@ -45,10 +52,13 @@
 <div id="map"></div>
 <footer class="footer">
 	<div class="timeline">
-		<div class="timeline__status">
-
-		</div>
-		<div class="timeline__cursor"></div>
+		<div class="timeline__status"></div>
+		<div class="timeline__cursor timeline__cursor--top"></div>
+		<div class="timeline__cursor timeline__cursor--middle"></div>
+		<div class="timeline__cursor timeline__cursor--bottom"></div>
+	</div>
+	<div class="copyright">
+		AutoGRAPH
 	</div>
 </footer>
 

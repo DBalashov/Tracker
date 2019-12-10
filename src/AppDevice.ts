@@ -6,9 +6,11 @@ export default class AppDevice {
 	private readonly containerTree: HTMLUListElement;
 	private readonly containerInfo: HTMLElement;
 	private readonly templateItem: HTMLTemplateElement;
+	private readonly locationControl: HTMLButtonElement;
 	private readonly urlImage: string;
 	private readonly nameFolder: string = '(folder)';
 	private readonly callback: (id: string) => void;
+	public location: boolean = true;
 
 	constructor(urlImage: string, callback: (id: string) => void) {
 		this.devicePopup = document.querySelector('.device__popup') as HTMLElement;
@@ -22,6 +24,13 @@ export default class AppDevice {
 		this.containerTree = document.querySelector('.device__tree') as HTMLUListElement;
 
 		this.templateItem = document.getElementById('device__item-template') as HTMLTemplateElement;
+
+		this.locationControl = (document.querySelector('.device__location-control') as HTMLButtonElement);
+
+		this.locationControl.addEventListener('click', (e) => {
+			this.location = ! this.location;
+			(e.currentTarget as HTMLButtonElement).classList.toggle('device__location-control--active');
+		});
 
 		this.urlImage = urlImage;
 
@@ -82,11 +91,7 @@ export default class AppDevice {
 			result[item.ID] = item;
 		});
 
-		//this.setElementData(this.containerControl, data['null'][0], 0);
-
 		this.createPopup('null', data, 0);
-
-		//this.callback(data['null'][0]);
 
 		return result;
 	}
@@ -95,8 +100,12 @@ export default class AppDevice {
 		this.setElementData(this.containerControl, item, 0);
 	}
 
-	public setInfo(): void {
-		this.containerInfo;
+	public locationEnable(): void {
+		this.locationControl.removeAttribute('disabled');
+	}
+
+	public locationDisable(): void {
+		this.locationControl.setAttribute('disabled', 'true');
 	}
 }
 

@@ -41,6 +41,10 @@ img {
 	max-height: 100%;
 }
 
+[disabled] {
+	cursor: not-allowed;
+}
+
 #map {
 	width: 100vw;
 	height: calc(100vh - 80px);
@@ -53,7 +57,7 @@ img {
 	height: 40px;
 	padding: 0 10px;
 	color: #fff;
-	background: #333;
+	background: #2c3e50;
 }
 
 .header {
@@ -62,6 +66,8 @@ img {
 
 .device {
 	position: relative;
+	display: flex;
+	align-items: center;
 
 	&__control {
 		height: 30px;
@@ -115,10 +121,72 @@ img {
 
 		}
 	}
+
+	&__location {
+		margin-left: 2px;
+
+		&-control {
+			position: relative;
+			width: 30px;
+			height: 30px;
+			border: 0;
+			background: #fff;
+
+			&--active {
+				background: #f1c40f;
+			}
+
+			i {
+				position: absolute;
+				left: 8px;
+				top: 8px;
+				width: 14px;
+				height: 14px;
+				border: 1px solid #333;
+				border-radius: 50%;
+
+				&:before {
+					content: "";
+					position: absolute;
+					left: -4px;
+					top: 50%;
+					right: -4px;
+					transform: translateY(-50%);
+					border-top: 1px solid #333;
+				}
+
+				&:after {
+					content: "";
+					position: absolute;
+					top: -4px;
+					left: 50%;
+					bottom: -4px;
+					transform: translateX(-50%);
+					border-left: 1px solid #333;
+				}
+			}
+		}
+	}
 }
 
 .period {
 	white-space: nowrap;
+
+	&__fieldset {
+		&[disabled] {
+			position: relative;
+
+			&:after {
+				content: '';
+				position: absolute;
+				left: 0;
+				top: 0;
+				right: 0;
+				bottom: 0;
+				cursor: not-allowed;
+			}
+		}
+	}
 }
 .period__control,
 .period__date {
@@ -202,26 +270,44 @@ img {
 		display: block;
 	}
 
+	&--visible + .copyright {
+		display: none;
+	}
+
 	//flex: 1;
 	//height: 10px;
 	//background-image: repeating-linear-gradient(to right, #fff 0, #fff 1px, #0000 1px, #0000 40px);
 
 	&__status {
 		height: 8px;
-		background: #ccc;
+		background: #bdc3c7;
 		cursor: pointer;
 	}
 
 	&__cursor {
 		position: absolute;
-		top: -2px;
-		height: 12px;
-		border-left: 1px solid #fff;
+		font-size: 10px;
 
-		&--hover {
-			border-color: #ffc;
+		&--top {
+			top: -13px;
+		}
+
+		&--middle {
+			top: -2px;
+			height: 12px;
+			border-left: 1px solid #fff;
+		}
+
+		&--bottom {
+			bottom: -13px;
 		}
 	}
+}
+
+.copyright {
+	flex: 1;
+	text-align: center;
+	color: #ecf0f1;
 }
 
 .message {
@@ -232,7 +318,8 @@ img {
 	padding: 30px 40px;
 	opacity: 0;
 	visibility: hidden;
-	background: #fff;
+	color: #fff;
+	background: #2980b9;
 	z-index: 1000;
 }
 .message--visible {
