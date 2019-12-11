@@ -43,22 +43,35 @@
 			--><button type="button" class="period__control period__control--up"></button>
 		</fieldset>
 	</form>
-	<div>
-		<select>
-			<option>2GIS</option>
-		</select>
-	</div>
+	<form class="layers">
+		<select class="layers__select"></select>
+	</form>
 </header>
 <div id="map"></div>
+<template id="marker-template">
+	<div class="marker">
+		<img class="marker__image" width="24" />
+		<i class="marker__border"></i>
+		<span class="marker__name"></span>
+		<span class="marker__speed"></span>
+		<span class="marker__address"></span>
+	</div>
+</template>
 <footer class="footer">
 	<div class="timeline">
 		<div class="timeline__status"></div>
+		<div class="timeline__date"></div>
 		<div class="timeline__cursor timeline__cursor--top"></div>
 		<div class="timeline__cursor timeline__cursor--middle"></div>
 		<div class="timeline__cursor timeline__cursor--bottom"></div>
+		<template id="timeline__date-item-template"><div class="timeline__date-item"></div></template>
 	</div>
 	<div class="copyright">
 		AutoGRAPH
+	</div>
+	<div class="info">
+		<div class="info__dist"></div>
+		<div class="info__speed"></div>
 	</div>
 </footer>
 

@@ -3,9 +3,11 @@ import '../node_modules/leaflet/dist/leaflet.css';
 import 'leaflet-hotline';
 import 'leaflet-geometryutil';
 import 'leaflet-almostover';
-import { IDeviceItem, IEnumDevices } from "@/App";
+import { IDeviceItem, IEnumDevices } from '@/App';
+import { ILayerConfig } from '@/AppLayers';
 
 export default class AppMap {
+	private readonly markerTemplate: HTMLTemplateElement;
 	private readonly map: L.Map;
 	private readonly layerGroup: L.LayerGroup = L.layerGroup([], {});
 	private readonly urlImage: string;
@@ -20,6 +22,7 @@ export default class AppMap {
 	private hotlineLayer: L.Polyline | null = null;
 	private deviceMarker: L.Marker | null = null;
 	private track: ITrack | null = null;
+	private currentLayer: L.TileLayer | null = null;
 
 	constructor(urlImage: string, markerCallback: (id: string) => void, trackCallback: (d: Date) => void) {
 		this.map = L.map('map', {
@@ -31,7 +34,9 @@ export default class AppMap {
 			position: 'topright'
 		}).addTo(this.map);
 
-		this.map.addLayer(L.tileLayer('//tile{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1', { subdomains: '0123', maxZoom: 18 }));
+		const z = this.map.getContainer().querySelector('.leaflet-control-zoom') as HTMLElement;
+		(z.parentNode as HTMLElement).style.top = '50%';
+		(z.parentNode as HTMLElement).style.transform = 'translateY(-50%)';
 
 		this.layerGroup.addTo(this.map);
 
@@ -44,17 +49,43 @@ export default class AppMap {
 		this.markerCallback = markerCallback;
 
 		this.trackCallback = trackCallback;
+
+		this.markerTemplate = document.getElementById('marker-template') as HTMLTemplateElement;
 	}
 
-	private buildMarker(id: string, coord: L.LatLng, image: string): void {
+	private buildMarker(id: string, coord: L.LatLng, image: string, name: string, angle: number, speed: number, address: string): void {
 		this.deviceMarker = L.marker(coord, {
-			icon: L.icon({
-				iconUrl: this.urlImage + '/' + image,
-				iconSize: [24, 24]
+			icon: L.divIcon({
+				className: '',
+				iconSize: [24, 24],
+				html: this.markerTemplate.innerHTML
 			})
 		})
 		.on('click', () => this.markerCallback(id))
 		.addTo(this.layerGroup);
+
+		const element = this.deviceMarker.getElement() as HTMLElement;
+		const imageElement = element.querySelector('.marker__image') as HTMLImageElement;
+		const nameElement = element.querySelector('.marker__name') as HTMLElement;
+
+		imageElement.src = this.urlImage + '/' + image;
+		nameElement.innerHTML = name;
+
+		this.setMarkerInfo(this.deviceMarker, angle, speed, address);
+	}
+
+	private setMarkerInfo(marker: L.Marker, angle: number, speed: number, address: string): void {
+		const element = marker.getElement() as HTMLElement;
+		const borderElement = element.querySelector('.marker__border') as HTMLElement;
+		const speedElement = element.querySelector('.marker__speed') as HTMLElement;
+		const addressElement = element.querySelector('.marker__address') as HTMLElement;
+
+		borderElement.style.color = '#34495e';
+		borderElement.style.transform = 'rotate(' + angle + 'deg)';
+
+		speed = Math.round(speed);
+		speedElement.innerHTML = speed > 0 ? speed + ' км/ч' : '';
+		addressElement.innerHTML = address;
 	}
 
 	private positionByDate(d: Date): IPosition {
@@ -136,6 +167,16 @@ export default class AppMap {
 		}
 
 		return result;
+	}
+
+	public changeLayer(config: ILayerConfig): void {
+		if (this.currentLayer !== null) {
+			this.map.removeLayer(this.currentLayer);
+		}
+
+		this.currentLayer = L.tileLayer(config.url, config.opt);
+
+		this.map.addLayer(this.currentLayer);
 	}
 
 	public clear(): void {
@@ -231,11 +272,11 @@ export default class AppMap {
 
 			}
 
-			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string);
+			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, 0, 0, '');
 		}
 	}
 
-	public buildPositions(positions: any, devices: IEnumDevices, focus: boolean): void {
+	public buildPositions(positions: any, devices: IEnumDevices): void {
 		const bounds = L.latLngBounds([]);
 
 		this.clear();
@@ -247,13 +288,13 @@ export default class AppMap {
 			if (p != null && p._LastCoords != null && d) {
 				const coord = L.latLng(p.LastPosition.Lat, p.LastPosition.Lng);
 
-				this.buildMarker(d.ID, coord, d.ImageColored as string);
+				this.buildMarker(d.ID, coord, d.ImageColored as string, p.Name, p.Course, p.Speed, p.Address);
 
 				bounds.extend(coord);
 			}
 		});
 
-		if (this.map && bounds.isValid() && focus) {
+		if (this.map && bounds.isValid()) {
 			this.map.fitBounds(bounds);
 		}
 	}
@@ -264,6 +305,8 @@ export default class AppMap {
 		const position = this.positionByDate(d);
 
 		this.deviceMarker.setLatLng(position.latLng);
+
+		this.setMarkerInfo(this.deviceMarker, position.angle, position.speed, '');
 
 		return position;
 	}

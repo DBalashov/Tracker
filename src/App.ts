@@ -1,7 +1,9 @@
 import AppDevice from './AppDevice';
 import AppPeriod from './AppPeriod';
+import AppLayers from './AppLayers';
 import AppMap from './AppMap';
 import AppTimeline from './AppTimeline';
+import AppInfo from './AppInfo';
 
 export default class App {
 	private readonly serial: number;
@@ -9,14 +11,16 @@ export default class App {
 	private readonly token: string;
 	private readonly schemaID: string;
 	private readonly refreshTime: number = 15000;
+	private readonly device: AppDevice;
+	private readonly period: AppPeriod;
+	private readonly layers: AppLayers;
+	private readonly map: AppMap;
+	private readonly timeline: AppTimeline;
+	private readonly info: AppInfo;
 	private refreshTimeout: number = 0;
 	private refreshActive: boolean = true;
 	private id: string = '';
 	private data: IEnumDevices = {};
-	private device: AppDevice;
-	private period: AppPeriod;
-	private map: AppMap;
-	private timeline: AppTimeline;
 
 	constructor(config: any) {
 		this.serial = +config.Settings.serial;
@@ -29,7 +33,7 @@ export default class App {
 		this.period = new AppPeriod((sd: Date, ed: Date) => {
 			const d = new Date();
 			this.refreshActive = d.getFullYear() === ed.getFullYear() && d.getMonth() === ed.getMonth() && d.getDate() === ed.getDate();
-			this.refreshTrack();
+			this.refreshTrack(false);
 		});
 
 		this.map = new AppMap(
@@ -41,9 +45,13 @@ export default class App {
 			}
 		);
 
+		this.layers = new AppLayers(this.map);
+
 		this.timeline = new AppTimeline((d: Date) => {
 			this.onChangePosition(d);
 		});
+
+		this.info = new AppInfo();
 
 		this.post('EnumDevices', { }, (r: IEnumDevicesResult) => {
 			this.data = this.device.setData(r);
@@ -71,15 +79,17 @@ export default class App {
 			this.device.locationEnable();
 			this.period.enable();
 			this.timeline.show();
-			this.refreshTrack();
+			this.refreshTrack(true);
 		}
 	}
 
 	private onChangePosition(d: Date): void {
 		const info = this.map.moveMarker(d);
+
+		this.info.update(info ? info.dist : 0, info ? info.speed : 0);
 	}
 
-	private refreshTrack(): void {
+	private refreshTrack(focus: boolean): void {
 		const { sd, ed } = this.period.getDate();
 
 		clearTimeout(this.refreshTimeout);
@@ -103,7 +113,7 @@ export default class App {
 
 			let lastTime = this.timeline.getValue();
 
-			this.map.buildTrack(track, this.data[this.id], this.device.location);
+			this.map.buildTrack(track, this.data[this.id], this.device.location || focus);
 
 			this.timeline.setData(track.DT);
 
@@ -112,9 +122,10 @@ export default class App {
 			}
 
 			this.timeline.setValue(lastTime);
+			this.onChangePosition(lastTime);
 
 			if (this.refreshActive) {
-				this.refreshTimeout = setTimeout(() => this.refreshTrack(), this.refreshTime);
+				this.refreshTimeout = setTimeout(() => this.refreshTrack(false), this.refreshTime);
 			}
 		});
 	}
@@ -125,18 +136,18 @@ export default class App {
 		this.post('GetOnlineInfo', {
 			IDs: this.id
 		}, (r) => {
-			this.map.buildPositions(r, this.data, this.device.location);
-			this.refreshTimeout = setTimeout(() => this.refreshPosition(), this.refreshTime);
+			this.map.buildPositions(r, this.data);
+			//this.refreshTimeout = setTimeout(() => this.refreshPosition(), this.refreshTime);
 		});
 	}
 
 	private fmtDT(d: Date) {
-		const mm = d.getMonth() + 1;
-		const dd = d.getDate();
-		const hh = d.getHours();
-		const mi = d.getMinutes();
+		const mm = d.getUTCMonth() + 1;
+		const dd = d.getUTCDate();
+		const hh = d.getUTCHours();
+		const mi = d.getUTCMinutes();
 
-		return d.getFullYear() + (mm > 9 ? '' : '0') + mm + (dd > 9 ? '' : '0') + dd + '-' + (hh > 9 ? '' : '0') + hh + (mi > 9 ? '' : '0') + mi;
+		return d.getUTCFullYear() + (mm > 9 ? '' : '0') + mm + (dd > 9 ? '' : '0') + dd + '-' + (hh > 9 ? '' : '0') + hh + (mi > 9 ? '' : '0') + mi;
 	}
 
 	private post(method: string, data: any, callback: (r: any) => void) {
