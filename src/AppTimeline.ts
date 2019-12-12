@@ -3,7 +3,6 @@ export default class AppTimeline {
 	private readonly status: HTMLElement;
 	private readonly cursorTop: HTMLElement;
 	private readonly cursorMiddle: HTMLElement;
-	private readonly cursorBottom: HTMLElement;
 	private readonly dateContainer: HTMLElement;
 	private readonly dateItemTemplate: HTMLTemplateElement;
 	private times: Date[] = [];
@@ -14,7 +13,6 @@ export default class AppTimeline {
 		this.status = this.container.querySelector('.timeline__status') as HTMLElement;
 		this.cursorTop = this.container.querySelector('.timeline__cursor--top') as HTMLElement;
 		this.cursorMiddle = this.container.querySelector('.timeline__cursor--middle') as HTMLElement;
-		this.cursorBottom = this.container.querySelector('.timeline__cursor--bottom') as HTMLElement;
 		this.dateContainer = this.container.querySelector('.timeline__date') as HTMLElement;
 		this.dateItemTemplate = document.getElementById('timeline__date-item-template') as HTMLTemplateElement;
 
@@ -38,13 +36,10 @@ export default class AppTimeline {
 		const ss = value.getSeconds();
 
 		this.cursorTop.innerHTML = (hh > 9 ? hh : '0' + hh) + ':' + (mm > 9 ? mm : '0' + mm) + ':' + (ss > 9 ? ss : '0' + ss);
-		this.cursorBottom.innerHTML = (day > 9 ? day : '0' + day) + '.' + (month > 9 ? month : '0' + month) + '.' + value.getFullYear();
 
 		const width = this.status.clientWidth;
 		const cursorTopHalf = (100 / (width / this.cursorTop.clientWidth)) / 2;
-		const cursorBottomHalf = (100 / (width / this.cursorBottom.clientWidth)) / 2;
 		let cursorTopLeft = left - cursorTopHalf;
-		let cursorBottomLeft = left - cursorBottomHalf;
 
 		if (cursorTopLeft < 0) {
 			cursorTopLeft = 0;
@@ -52,15 +47,7 @@ export default class AppTimeline {
 			cursorTopLeft = 100 - cursorTopHalf * 2;
 		}
 
-		if (cursorBottomLeft < 0) {
-			cursorBottomLeft = 0;
-		} else if (left + cursorBottomHalf > 100) {
-			cursorBottomLeft = 100 - cursorBottomHalf * 2;
-		}
-
 		this.cursorTop.style.left = cursorTopLeft + '%';
-
-		this.cursorBottom.style.left = cursorBottomLeft + '%';
 
 		this.cursorMiddle.style.left = left + '%';
 	}
@@ -73,40 +60,93 @@ export default class AppTimeline {
 		this.container.classList.remove('timeline--visible');
 	}
 
-	public setData(times: string[]): void {
+	public setData(times: string[], speed: number[]): void {
 		this.times = times.map((t) => new Date(t));
 
-		const minDateWidth = 100 / (this.status.clientWidth / 45); // 45px
 		const minTime = this.times[0].getTime();
 		const maxTime = this.times[this.times.length - 1].getTime();
 		const period =  maxTime - minTime;
+
+		// --- Dates ---
 
 		this.dateContainer.innerHTML = '';
 
 		let info: any = {};
 
-		this.times.forEach((item: Date, i: number) => {
+		this.times.forEach((item: Date) => {
 			const day = item.getDate();
 			const month = item.getMonth();
 			const d = (day > 9 ? day : '0' + day) + '.' + (month > 9 ? month : '0' + month) + '.' + item.getFullYear();
-
-			info[d] = 100 / (period / (item.getTime() - minTime));
+			info[d] = item.getTime();
 		});
 
-		let prev = 0;
+		let startTime = minTime;
+		let n = Object.keys(info).length - 1;
+		let i = 0;
+
 		for (let d in info) {
 			const htmlElement: HTMLElement = this.dateItemTemplate.content.cloneNode(true) as HTMLElement;
-
 			this.dateContainer.appendChild(htmlElement);
-
 			const element = this.dateContainer.lastChild as HTMLElement;
-			const w = info[d] - prev;
-
-			prev = info[d];
-
-			element.innerHTML = w > minDateWidth ? d : '';
-			element.style.width = w + '%';
+			// ---
+			const dt = new Date();
+			dt.setTime(info[d]);
+			// ---
+			if (i > 0) {
+				dt.setHours(0,0,0,0);
+				startTime = dt.getTime();
+			}
+			// ---
+			let endTime = info[d];
+			if (i !== n) {
+				dt.setHours(23,59,59,999);
+				endTime = dt.getTime();
+			}
+			// ---
+			element.innerHTML = d;
+			element.style.width = (100 / (period / (endTime - startTime))) + '%';
+			// ---
+			i++;
 		}
+
+		// --- Stops ---
+		/*
+		startTime = minTime;
+
+		const gradients: string[] = [];
+		let currentWidth = 0;
+		let currentColor = '';
+
+		speed = speed.map((s) => s > 1 ? s : 0);
+
+		n = 0;
+		for (let i = 0; i < speed.length - 1; i++) {
+			let endTime = this.times[i + 1].getTime();
+
+			currentWidth = 100 / (period / (endTime - startTime));
+
+			if (speed[i] === 0 && speed[i + 1] === 0 || speed[i] !== 0 && speed[i + 1] !== 0) {
+				continue;
+			}
+
+			if (speed[i] === 0) {
+				gradients.push('#00f' + ' 0% ' + currentWidth + '%');debugger;
+				startTime = endTime;
+				n += currentWidth;
+			} else {
+				gradients.push('#eee' + ' 0% ' + currentWidth + '%');
+				startTime = endTime;
+				n += currentWidth;
+			}
+		}
+		//gradients.push('#eee' + ' ' + (100 - n) + '%');
+
+		console.log(gradients.join(','));
+
+		if (gradients.length > 0) {
+			this.status.style.backgroundImage = 'linear-gradient(to right,' + gradients.join(',') + ')';
+		}
+		*/
 	}
 
 	public setValue(value: Date): void {
@@ -115,7 +155,6 @@ export default class AppTimeline {
 		const d = period / offset;
 
 		this.value = value;
-
 		this.setCursor(value, 100 / d);
 	}
 

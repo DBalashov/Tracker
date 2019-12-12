@@ -1,0 +1,109 @@
+.device {
+	position: relative;
+	display: flex;
+	align-items: center;
+
+	&__control {
+		height: 30px;
+		color: #000;
+		background: #fff;
+	}
+
+	&__control &__item-name {
+		max-width: 150px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	&__popup {
+		position: absolute;
+		left: 0;
+		top: 30px;
+		max-width: calc(100vw - 20px);
+		max-height: 50vh;
+		opacity: 0;
+		visibility: hidden;
+		transition: .3s;
+		overflow: auto;
+		color: #000;
+		background: #fff;
+		z-index: 9999;
+
+		&--open {
+			opacity: 1;
+			visibility: visible;
+		}
+	}
+
+	&__tree {
+		padding: 4px 0;
+	}
+
+	&__item {
+		display: flex;
+		align-items: center;
+		padding: 4px 8px;
+		white-space: nowrap;
+		cursor: pointer;
+
+		&:hover {
+			background: #eee;
+		}
+
+		&-image {
+			width: 18px;
+			height: 18px;
+			text-align: center;
+		}
+
+		&-name {
+			margin-left: 4px;
+		}
+	}
+
+	&__location {
+		margin-left: 2px;
+
+		&-control {
+			position: relative;
+			width: 30px;
+			height: 30px;
+			border: 0;
+			background: #fff;
+
+			&--active {
+				background: #f1c40f;
+			}
+
+			i {
+				position: absolute;
+				left: 8px;
+				top: 8px;
+				width: 14px;
+				height: 14px;
+				border: 1px solid #333;
+				border-radius: 50%;
+
+				&:before {
+					content: "";
+					position: absolute;
+					left: -4px;
+					top: 50%;
+					right: -4px;
+					transform: translateY(-50%);
+					border-top: 1px solid #333;
+				}
+
+				&:after {
+					content: "";
+					position: absolute;
+					top: -4px;
+					left: 50%;
+					bottom: -4px;
+					transform: translateX(-50%);
+					border-left: 1px solid #333;
+				}
+			}
+		}
+	}
+}

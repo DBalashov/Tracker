@@ -99,14 +99,6 @@ export default class AppDevice {
 	public setDevice(item: IDeviceItem): void {
 		this.setElementData(this.containerControl, item, 0);
 	}
-
-	public locationEnable(): void {
-		this.locationControl.removeAttribute('disabled');
-	}
-
-	public locationDisable(): void {
-		this.locationControl.setAttribute('disabled', 'true');
-	}
 }
 
 interface IEnumDevicesTree {

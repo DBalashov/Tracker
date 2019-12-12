@@ -1,0 +1,36 @@
+*,
+*:before,
+*:after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	height: 100%;
+}
+
+a {
+	text-decoration: none;
+	color: inherit;
+}
+
+big {
+	font-size: larger;
+}
+
+small {
+	font-size: smaller;
+}
+
+button {
+	cursor: pointer;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+[disabled] {
+	cursor: not-allowed;
+}

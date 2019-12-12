@@ -1,0 +1,169 @@
+.marker {
+	font-size: 11px;
+	line-height: 1;
+	white-space: nowrap;
+
+	&--position {
+		$size: 50px;
+
+		color: #c0392b;
+
+		&:before,
+		&:after {
+			content: "";
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			width: $size;
+			height: $size;
+			margin-left: -$size/2;
+			margin-top: -$size/2;
+			border-radius: 50%;
+			opacity: 0;
+			box-shadow: 0 0 1px 1px;
+			animation: pulsate 1s ease-in-out;
+			animation-iteration-count: 1;
+			z-index: 1;
+		}
+
+		&:after {
+			animation-delay: .25s;
+		}
+	}
+
+	&__border {
+		position: absolute;
+		left: -2px;
+		top: -2px;
+		right: -2px;
+		bottom: -2px;
+		z-index: 1;
+		//border: 1px solid currentColor;
+		//border-radius: 50%;
+		//opacity: .5;
+
+		&:before {
+			content: '';
+			position: absolute;
+			left: 50%;
+			top: -12px;
+			margin-left: -6px;
+			border: 6px solid transparent;
+			border-bottom: 6px solid currentColor;
+		}
+	}
+
+	&__name,
+	&__speed,
+	&__dist,
+	&__address {
+		position: absolute;
+		padding: 0 2px;
+		color: #34495e;
+		border-bottom: 1px solid;
+		background: rgba(236, 240, 241, 0.95);
+		box-shadow: 2px 2px 3px 0 rgba(0,0,0,0.15);
+		opacity: 0;
+		visibility: hidden;
+		transition: .3s;
+
+		&:empty {
+			display: none;
+		}
+
+		&:before {
+			content: '';
+			position: absolute;
+			width: 28px;
+			border-top: 1px solid;
+			z-index: -1;
+		}
+	}
+
+	&__name {
+		top: -20px;
+		right: 100%;
+		margin-right: 6px;
+
+		&:before {
+			top: 21px;
+			transform: rotate(45deg);
+			left: 100%;
+			margin-left: -5px;
+		}
+	}
+
+	&__address {
+		bottom: -8px;
+		right: 100%;
+		margin-right: 6px;
+
+		&:before {
+			bottom: 9px;
+			left: 100%;
+			transform: rotate(-45deg);
+			margin-left: -5px;
+		}
+	}
+
+	&__speed {
+		top: -20px;
+		left: 100%;
+		margin-left: 6px;
+		opacity: 1;
+		visibility: visible;
+
+		&:before {
+			top: 21px;
+			right: 100%;
+			transform: rotate(-45deg);
+			margin-right: -5px;
+		}
+	}
+
+	&__dist {
+		bottom: -8px;
+		left: 100%;
+		margin-left: 6px;
+
+		&:before {
+			bottom: 9px;
+			right: 100%;
+			transform: rotate(45deg);
+			margin-right: -4px;
+		}
+	}
+
+	&--updated &__name:not(:empty),
+	&--updated &__dist:not(:empty),
+	&--updated &__address:not(:empty),
+	&:hover &__name:not(:empty),
+	&:hover &__dist:not(:empty),
+	&:hover &__address:not(:empty) {
+		opacity: 1;
+		visibility: visible;
+	}
+}
+
+@keyframes pulsate {
+	0% {
+		-webkit-transform: scale(0.1, 0.1);
+		transform: scale(0.1, 0.1);
+		opacity: 0;
+		-ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
+		filter: alpha(opacity=0);
+	}
+	50% {
+		opacity: 1;
+		-ms-filter: none;
+		-webkit-filter: none;
+		filter: none;
+	}
+	100% {
+		-webkit-transform: scale(1.2, 1.2);
+		transform: scale(1.2, 1.2);
+		opacity: 0;
+		-ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
+		filter: alpha(opacity=0);
+	}
+}

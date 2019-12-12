@@ -1,0 +1,17 @@
+.message {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	padding: 30px 40px;
+	opacity: 0;
+	visibility: hidden;
+	color: #fff;
+	background: #2980b9;
+	z-index: 1000;
+
+	&--visible {
+		opacity: 1;
+		visibility: visible;
+	}
+}

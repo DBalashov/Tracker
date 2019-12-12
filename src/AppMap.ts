@@ -1,8 +1,8 @@
 import L from 'leaflet';
-import '../node_modules/leaflet/dist/leaflet.css';
 import 'leaflet-hotline';
 import 'leaflet-geometryutil';
 import 'leaflet-almostover';
+import 'leaflet-polylinedecorator';
 import { IDeviceItem, IEnumDevices } from '@/App';
 import { ILayerConfig } from '@/AppLayers';
 
@@ -19,12 +19,18 @@ export default class AppMap {
 		fillColor: 'white',
 		fillOpacity: 1
 	});
+	private readonly distUnit: string = 'км';
+	private readonly speedUnit: string = 'км/ч';
 	private hotlineLayer: L.Polyline | null = null;
 	private deviceMarker: L.Marker | null = null;
 	private track: ITrack | null = null;
 	private currentLayer: L.TileLayer | null = null;
+	private trackColors: ITrackColors = {
+		'0': '#27ae60',
+		'1000': '#27ae60'
+	};
 
-	constructor(urlImage: string, markerCallback: (id: string) => void, trackCallback: (d: Date) => void) {
+	constructor(urlImage: string, trackColors: ITrackColors | null, markerCallback: (id: string) => void, trackCallback: (d: Date) => void) {
 		this.map = L.map('map', {
 			preferCanvas: true,
 			zoomControl: false
@@ -51,9 +57,13 @@ export default class AppMap {
 		this.trackCallback = trackCallback;
 
 		this.markerTemplate = document.getElementById('marker-template') as HTMLTemplateElement;
+
+		if (trackColors !== null) {
+			this.trackColors = trackColors;
+		}
 	}
 
-	private buildMarker(id: string, coord: L.LatLng, image: string, name: string, angle: number, speed: number, address: string): void {
+	private buildMarker(id: string, coord: L.LatLng, image: string, name: string, angle: number, speed: number, dist: number, address: string): void {
 		this.deviceMarker = L.marker(coord, {
 			icon: L.divIcon({
 				className: '',
@@ -71,21 +81,29 @@ export default class AppMap {
 		imageElement.src = this.urlImage + '/' + image;
 		nameElement.innerHTML = name;
 
-		this.setMarkerInfo(this.deviceMarker, angle, speed, address);
+		this.setMarkerInfo(this.deviceMarker, angle, speed, dist, address);
 	}
 
-	private setMarkerInfo(marker: L.Marker, angle: number, speed: number, address: string): void {
+	private setMarkerInfo(marker: L.Marker, angle: number, speed: number, distance: number, address: string): void {
 		const element = marker.getElement() as HTMLElement;
 		const borderElement = element.querySelector('.marker__border') as HTMLElement;
 		const speedElement = element.querySelector('.marker__speed') as HTMLElement;
+		const distanceElement = element.querySelector('.marker__dist') as HTMLElement;
 		const addressElement = element.querySelector('.marker__address') as HTMLElement;
 
 		borderElement.style.color = '#34495e';
 		borderElement.style.transform = 'rotate(' + angle + 'deg)';
 
 		speed = Math.round(speed);
-		speedElement.innerHTML = speed > 0 ? speed + ' км/ч' : '';
+		speedElement.innerHTML = speed > 0 ? speed + ' ' + this.speedUnit : '';
+
+		distance = Math.round(distance / 1000);
+		distanceElement.innerHTML = distance > 0 ? distance.toLocaleString() + ' ' + this.distUnit : '';
+
 		addressElement.innerHTML = address;
+
+		element.classList.add('marker--updated');
+		setTimeout(() => element.classList.remove('marker--updated'), 3000);
 	}
 
 	private positionByDate(d: Date): IPosition {
@@ -206,14 +224,15 @@ export default class AppMap {
 		this.clear();
 
 		const data = [];
+		const speeds = Object.keys(this.trackColors).map((s) => +s);
+		const max = Math.max(...speeds);
+		const plt: ITrackColors = {};
 
-		let max = 0;
+		speeds.forEach((s: number) => {
+			plt[s / (max === 0 ? 1 : max)] = this.trackColors[s + ''];
+		});
 
 		for (let i = 0; i < track.Lat.length; i++) {
-			const speed = track.Speed[i];
-
-			if (speed > max) max = speed;
-
 			data.push([track.Lat[i], track.Lng[i], track.Speed[i]]);
 		}
 
@@ -221,12 +240,8 @@ export default class AppMap {
 			const options = {
 				min: 0,
 				max: max,
-				palette: {
-					0.0: '#008800',
-					0.5: '#ffff00',
-					1.0: '#ff0000'
-				},
-				weight: 3,
+				palette: plt,
+				weight: 4,
 				outlineColor: '#000000',
 				outlineWidth: 0.5,
 				clickable: true,
@@ -236,6 +251,28 @@ export default class AppMap {
 			const last = data.length - 1;
 
 			this.hotlineLayer = (<any>L).hotline(data, options).addTo(this.layerGroup);
+
+			(<any>L).polylineDecorator(this.hotlineLayer, {
+				patterns: [{
+					offset: 0,
+					repeat: '150px',
+					symbol: (<any>L).Symbol.arrowHead({
+						pixelSize: 7,
+						polygon: true,
+						pathOptions: {
+							opacity: 0.9,
+							color: '#2c3e50',
+							weight: 1,
+							fillColor: '#ecf0f1',
+							fill: true,
+							fillOpacity: 1
+						}
+					}),
+					border: true,
+					fill: false,
+					getColor: null
+				}]
+			}).addTo(this.layerGroup);
 
 			(<any>this.map).almostOver.addLayer(this.hotlineLayer);
 
@@ -272,11 +309,22 @@ export default class AppMap {
 
 			}
 
-			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, 0, 0, '');
+			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, 0, 0, 0, '');
+
+			// --- last position marker ---
+
+			const marker = L.marker([data[last][0], data[last][1]], {
+				icon: L.divIcon({
+					className: 'marker marker--position',
+					iconSize: [0, 0]
+				})
+			}).addTo(this.layerGroup);
+
+			setTimeout(() => marker.remove(), 3000);
 		}
 	}
 
-	public buildPositions(positions: any, devices: IEnumDevices): void {
+	public buildPositions(positions: any, devices: IEnumDevices, focus: boolean): void {
 		const bounds = L.latLngBounds([]);
 
 		this.clear();
@@ -288,14 +336,14 @@ export default class AppMap {
 			if (p != null && p._LastCoords != null && d) {
 				const coord = L.latLng(p.LastPosition.Lat, p.LastPosition.Lng);
 
-				this.buildMarker(d.ID, coord, d.ImageColored as string, p.Name, p.Course, p.Speed, p.Address);
+				this.buildMarker(d.ID, coord, d.ImageColored as string, p.Name, p.Course, p.Speed, 0, p.Address);
 
 				bounds.extend(coord);
 			}
 		});
 
-		if (this.map && bounds.isValid()) {
-			this.map.fitBounds(bounds);
+		if (this.map && bounds.isValid() && focus) {
+			this.map.fitBounds(bounds, { padding: [100, 100] });
 		}
 	}
 
@@ -306,7 +354,7 @@ export default class AppMap {
 
 		this.deviceMarker.setLatLng(position.latLng);
 
-		this.setMarkerInfo(this.deviceMarker, position.angle, position.speed, '');
+		this.setMarkerInfo(this.deviceMarker, position.angle, position.speed, position.dist, '');
 
 		return position;
 	}
@@ -326,4 +374,8 @@ interface IPosition {
 	speed: number;
 	index: number;
 	date: Date
+}
+
+interface ITrackColors {
+	[key: string]: string;
 }

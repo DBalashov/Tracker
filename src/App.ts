@@ -3,7 +3,11 @@ import AppPeriod from './AppPeriod';
 import AppLayers from './AppLayers';
 import AppMap from './AppMap';
 import AppTimeline from './AppTimeline';
-import AppInfo from './AppInfo';
+
+// --- config: ---
+// serial: serial number (if it exists open app for this device)
+// trackColors: JSON ('{"0": "#2980b9", "60": "#2ecc71", "110": "#e74c3c"}')
+// ---
 
 export default class App {
 	private readonly serial: number;
@@ -16,7 +20,6 @@ export default class App {
 	private readonly layers: AppLayers;
 	private readonly map: AppMap;
 	private readonly timeline: AppTimeline;
-	private readonly info: AppInfo;
 	private refreshTimeout: number = 0;
 	private refreshActive: boolean = true;
 	private id: string = '';
@@ -28,6 +31,13 @@ export default class App {
 		this.token = config.Token;
 		this.schemaID = config.Organization.UID;
 
+		let trackColors;
+		try {
+			trackColors = JSON.parse(config.Settings.trackColors);
+		} catch (e) {
+			trackColors = null;
+		}
+
 		this.device = new AppDevice(config.Urls.ImageCar, (id: string) => this.onChangeDevice(id));
 
 		this.period = new AppPeriod((sd: Date, ed: Date) => {
@@ -38,6 +48,7 @@ export default class App {
 
 		this.map = new AppMap(
 			config.Urls.ImageCar,
+			trackColors,
 			(id: string) => this.onChangeDevice(id),
 			(d: Date) => {
 				this.onChangePosition(d);
@@ -51,12 +62,17 @@ export default class App {
 			this.onChangePosition(d);
 		});
 
-		this.info = new AppInfo();
-
 		this.post('EnumDevices', { }, (r: IEnumDevicesResult) => {
 			this.data = this.device.setData(r);
-			const root: IDeviceItem = r.Groups.find((g: IDeviceItem) => g.ParentID === null) as IDeviceItem;
-			this.onChangeDevice(root.ID);
+
+			let item: IDeviceItem = r.Groups.find((g: IDeviceItem) => g.ParentID === null) as IDeviceItem;
+
+			if (this.serial) {
+				const i = r.Items.find((g: IDeviceItem) => g.Serial === this.serial) as IDeviceItem;
+				if (i) item = i;
+			}
+
+			this.onChangeDevice(item.ID);
 		});
 	}
 
@@ -71,12 +87,10 @@ export default class App {
 		this.device.setDevice(item);
 
 		if (typeof item.Serial === 'undefined') {
-			this.device.locationDisable();
 			this.period.disable();
 			this.timeline.hide();
 			this.refreshPosition();
 		} else {
-			this.device.locationEnable();
 			this.period.enable();
 			this.timeline.show();
 			this.refreshTrack(true);
@@ -84,15 +98,15 @@ export default class App {
 	}
 
 	private onChangePosition(d: Date): void {
-		const info = this.map.moveMarker(d);
-
-		this.info.update(info ? info.dist : 0, info ? info.speed : 0);
+		this.map.moveMarker(d);
 	}
 
 	private refreshTrack(focus: boolean): void {
 		const { sd, ed } = this.period.getDate();
 
 		clearTimeout(this.refreshTimeout);
+
+		this.message('notrack', false);
 
 		this.post('GetTrack', {
 			IDs: this.id,
@@ -102,11 +116,11 @@ export default class App {
 		}, (r) => {
 			if (r[this.id].length === 0 || ! r[this.id][0] || r[this.id][0].DT.length == 0) {
 				this.map.clear();
-				this.device.locationDisable();
-				this.period.disable();
 				this.timeline.hide();
 				this.message('notrack', true, 'Нет данных');
 				return;
+			} else {
+				this.timeline.show();
 			}
 
 			const track = r[this.id][0];
@@ -115,7 +129,7 @@ export default class App {
 
 			this.map.buildTrack(track, this.data[this.id], this.device.location || focus);
 
-			this.timeline.setData(track.DT);
+			this.timeline.setData(track.DT, track.Speed);
 
 			if (this.device.location || lastTime === null) {
 				lastTime = new Date(track.DT[track.DT.length - 1]);
@@ -136,8 +150,8 @@ export default class App {
 		this.post('GetOnlineInfo', {
 			IDs: this.id
 		}, (r) => {
-			this.map.buildPositions(r, this.data);
-			//this.refreshTimeout = setTimeout(() => this.refreshPosition(), this.refreshTime);
+			this.map.buildPositions(r, this.data, this.device.location);
+			this.refreshTimeout = setTimeout(() => this.refreshPosition(), this.refreshTime);
 		});
 	}
 
