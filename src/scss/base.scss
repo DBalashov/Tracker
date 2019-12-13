@@ -9,11 +9,46 @@
 @import 'timeline.scss';
 @import '../../node_modules/leaflet/dist/leaflet.css';
 
+// Pallete https://flatuicolors.com/palette/defo
+
 body {
 	min-width: 480px;
 	font: 400 12px/1 Roboto Condensed, PT Sans, Trebuchet MS, Verdana, Helvetica, sans-serif;
 	color: #212529;
 	background: #fff;
+
+	&.loading {
+		position: relative;
+
+		&:before {
+			content: "";
+			position: absolute;
+			left: 0;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(236, 240, 241, .25);
+			z-index: 9998;
+		}
+
+		&:after {
+			content: "";
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			height: 48px;
+			width: 48px;
+			margin: -24px 0 0 -24px;
+			border: 4px solid rgba(255,255,255,.25);
+			border-right-color: #f39c12;
+			border-radius: 50%;
+			animation-duration: 0.75s;
+			animation-iteration-count: infinite;
+			animation-name: rotate-forever;
+			animation-timing-function: linear;
+			z-index: 9999;
+		}
+	}
 }
 
 #map {
@@ -48,4 +83,13 @@ body {
 	flex: 1;
 	text-align: center;
 	color: #ecf0f1;
+}
+
+@keyframes rotate-forever {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
 }

@@ -43,15 +43,17 @@ export default class App {
 		this.period = new AppPeriod((sd: Date, ed: Date) => {
 			const d = new Date();
 			this.refreshActive = d.getFullYear() === ed.getFullYear() && d.getMonth() === ed.getMonth() && d.getDate() === ed.getDate();
+			this.map.clear();
+			this.timeline.setValue(null);
 			this.refreshTrack(false);
 		});
 
 		this.map = new AppMap(
 			config.Urls.ImageCar,
 			trackColors,
-			(id: string) => this.onChangeDevice(id),
+			(id: string) => this.id !== id && this.onChangeDevice(id),
 			(d: Date) => {
-				this.onChangePosition(d);
+				this.onChangePosition(d, false);
 				this.timeline.setValue(d);
 			}
 		);
@@ -59,7 +61,7 @@ export default class App {
 		this.layers = new AppLayers(this.map);
 
 		this.timeline = new AppTimeline((d: Date) => {
-			this.onChangePosition(d);
+			this.onChangePosition(d, true);
 		});
 
 		this.post('EnumDevices', { }, (r: IEnumDevicesResult) => {
@@ -79,12 +81,11 @@ export default class App {
 	private onChangeDevice(id: string): void {
 		this.message('notrack', false);
 
-		if (this.id === id) return;
-
 		const item = this.data[id];
 
 		this.id = id;
 		this.device.setDevice(item);
+		this.map.clear();
 
 		if (typeof item.Serial === 'undefined') {
 			this.period.disable();
@@ -97,8 +98,8 @@ export default class App {
 		}
 	}
 
-	private onChangePosition(d: Date): void {
-		this.map.moveMarker(d);
+	private onChangePosition(d: Date, setView: boolean): void {
+		this.map.moveMarker(d, setView);
 	}
 
 	private refreshTrack(focus: boolean): void {
@@ -107,6 +108,8 @@ export default class App {
 		clearTimeout(this.refreshTimeout);
 
 		this.message('notrack', false);
+
+		this.progress(true);
 
 		this.post('GetTrack', {
 			IDs: this.id,
@@ -127,7 +130,7 @@ export default class App {
 
 			let lastTime = this.timeline.getValue();
 
-			this.map.buildTrack(track, this.data[this.id], this.device.location || focus);
+			this.map.buildTrack(track, this.data[this.id], this.device.location || focus, ! this.refreshActive);
 
 			this.timeline.setData(track.DT, track.Speed);
 
@@ -136,22 +139,26 @@ export default class App {
 			}
 
 			this.timeline.setValue(lastTime);
-			this.onChangePosition(lastTime);
 
 			if (this.refreshActive) {
 				this.refreshTimeout = setTimeout(() => this.refreshTrack(false), this.refreshTime);
 			}
+
+			this.progress(false);
 		});
 	}
 
 	private refreshPosition(): void {
 		clearTimeout(this.refreshTimeout);
 
+		this.progress(true);
+
 		this.post('GetOnlineInfo', {
 			IDs: this.id
 		}, (r) => {
 			this.map.buildPositions(r, this.data, this.device.location);
 			this.refreshTimeout = setTimeout(() => this.refreshPosition(), this.refreshTime);
+			this.progress(false);
 		});
 	}
 
@@ -188,6 +195,10 @@ export default class App {
 		m.classList[show ? 'add' : 'remove']('message--visible');
 
 		m.innerHTML = message ? message : '';
+	}
+
+	private progress(state: boolean): void {
+		(document.querySelector('body') as HTMLBodyElement).classList[state ? 'add' : 'remove']('loading');
 	}
 }
 

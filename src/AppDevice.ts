@@ -10,6 +10,7 @@ export default class AppDevice {
 	private readonly urlImage: string;
 	private readonly nameFolder: string = '(folder)';
 	private readonly callback: (id: string) => void;
+	private id: string = '';
 	public location: boolean = true;
 
 	constructor(urlImage: string, callback: (id: string) => void) {
@@ -30,6 +31,10 @@ export default class AppDevice {
 		this.locationControl.addEventListener('click', (e) => {
 			this.location = ! this.location;
 			(e.currentTarget as HTMLButtonElement).classList.toggle('device__location-control--active');
+
+			if (this.location) {
+				callback(this.id);
+			}
 		});
 
 		this.urlImage = urlImage;
@@ -97,6 +102,7 @@ export default class AppDevice {
 	}
 
 	public setDevice(item: IDeviceItem): void {
+		this.id = item.ID;
 		this.setElementData(this.containerControl, item, 0);
 	}
 }

@@ -7,17 +7,46 @@ import { IDeviceItem, IEnumDevices } from '@/App';
 import { ILayerConfig } from '@/AppLayers';
 
 export default class AppMap {
+	private static TRACK_LINE_PANE = 'track-line-pane';
+	private static TRACK_ARROW_PANE = 'track-arrow-pane';
+	private static DEVICE_MARKER_PANE = 'device-marker-pane';
+	private static FLAGS_MARKER_PANE = 'marker-flags-pane';
+	
 	private readonly markerTemplate: HTMLTemplateElement;
 	private readonly map: L.Map;
 	private readonly layerGroup: L.LayerGroup = L.layerGroup([], {});
 	private readonly urlImage: string;
 	private readonly markerCallback: (id: string) => void;
 	private readonly trackCallback: (d: Date) => void;
-	private readonly trackCursor: L.CircleMarker = L.circleMarker([0, 0], {
+	private readonly trackCursorMarker: L.CircleMarker = L.circleMarker([0, 0], {
+		pane: AppMap.TRACK_ARROW_PANE,
 		radius: 5,
 		weight: 2,
 		fillColor: 'white',
 		fillOpacity: 1
+	});
+	private readonly trackStartMarker: L.Marker = L.marker([0, 0], {
+		pane: AppMap.FLAGS_MARKER_PANE,
+		icon: L.divIcon({
+			className: 'marker marker--start',
+			iconSize: [0, 24],
+			iconAnchor: [0, 24]
+		})
+	});
+	private readonly trackFinishMarker: L.Marker = L.marker([0, 0], {
+		pane: AppMap.FLAGS_MARKER_PANE,
+		icon: L.divIcon({
+			className: 'marker marker--finish',
+			iconSize: [0, 24],
+			iconAnchor: [0, 24]
+		})
+	});
+	private readonly trackPositionMarker: L.Marker = L.marker([0, 0], {
+		pane: AppMap.TRACK_ARROW_PANE,
+		icon: L.divIcon({
+			className: 'marker marker--position',
+			iconSize: [0, 0]
+		})
 	});
 	private readonly distUnit: string = 'км';
 	private readonly speedUnit: string = 'км/ч';
@@ -61,10 +90,23 @@ export default class AppMap {
 		if (trackColors !== null) {
 			this.trackColors = trackColors;
 		}
+		
+		// --- panes ---
+
+		[
+			AppMap.TRACK_LINE_PANE,
+			AppMap.TRACK_ARROW_PANE,
+			AppMap.FLAGS_MARKER_PANE,
+			AppMap.DEVICE_MARKER_PANE
+		].forEach((pane: string, i: number) => {
+			this.map.createPane(pane);
+			(this.map.getPane(pane) as HTMLElement).style.zIndex = (600 + 10 * i + 10) + '';
+		});
 	}
 
 	private buildMarker(id: string, coord: L.LatLng, image: string, name: string, angle: number, speed: number, dist: number, address: string): void {
 		this.deviceMarker = L.marker(coord, {
+			pane: AppMap.DEVICE_MARKER_PANE,
 			icon: L.divIcon({
 				className: '',
 				iconSize: [24, 24],
@@ -212,7 +254,7 @@ export default class AppMap {
 		this.layerGroup.clearLayers();
 	}
 
-	public buildTrack(track: ITrack, item: IDeviceItem, focus: boolean): void {
+	public buildTrack(track: ITrack, item: IDeviceItem, focus: boolean, finishMarker: boolean): void {
 		this.track = track;
 
 		let lastLatLng = null;
@@ -238,6 +280,7 @@ export default class AppMap {
 
 		if (data.length > 0) {
 			const options = {
+				pane: AppMap.TRACK_LINE_PANE,
 				min: 0,
 				max: max,
 				palette: plt,
@@ -253,8 +296,9 @@ export default class AppMap {
 			this.hotlineLayer = (<any>L).hotline(data, options).addTo(this.layerGroup);
 
 			(<any>L).polylineDecorator(this.hotlineLayer, {
+				pane: AppMap.TRACK_ARROW_PANE,
 				patterns: [{
-					offset: 0,
+					offset: '50px',
 					repeat: '150px',
 					symbol: (<any>L).Symbol.arrowHead({
 						pixelSize: 7,
@@ -278,13 +322,13 @@ export default class AppMap {
 
 			this.map
 				.on('almost:over', () => {
-					this.map.addLayer(this.trackCursor);
+					this.layerGroup.addLayer(this.trackCursorMarker);
 				})
 				.on('almost:move', (e: any) => {
-					this.trackCursor.setLatLng(e.latlng);
+					this.trackCursorMarker.setLatLng(e.latlng);
 				})
 				.on('almost:out', () => {
-					this.map.removeLayer(this.trackCursor);
+					this.layerGroup.removeLayer(this.trackCursorMarker);
 				})
 				.on('almost:click', (e: any) => {
 					const r = this.closestLatLng(e.latlng);
@@ -303,24 +347,34 @@ export default class AppMap {
 				});
 
 			if (focus || lastLatLng === null) {
-				lastLatLng = L.latLng(data[last][0], data[last][1]);
-				this.map.fitBounds((this.hotlineLayer as L.Polyline).getBounds(), { padding: [100, 100] });
-			} else {
+				const zoom = lastLatLng === null ? 16 : this.map.getZoom();
 
+				lastLatLng = L.latLng(data[last][0], data[last][1]);
+				//this.map.fitBounds((this.hotlineLayer as L.Polyline).getBounds(), { padding: [100, 100] });
+				this.map.setView(lastLatLng, zoom);
 			}
 
+			// --- device marker ---
+
 			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, 0, 0, 0, '');
+			
+			// --- start position marker ---
+
+			this.trackStartMarker.setLatLng([data[0][0], data[0][1]]);
+			this.trackStartMarker.addTo(this.layerGroup);
 
 			// --- last position marker ---
 
-			const marker = L.marker([data[last][0], data[last][1]], {
-				icon: L.divIcon({
-					className: 'marker marker--position',
-					iconSize: [0, 0]
-				})
-			}).addTo(this.layerGroup);
+			this.trackPositionMarker.setLatLng([data[last][0], data[last][1]]);
+			this.trackPositionMarker.addTo(this.layerGroup);
+			setTimeout(() => this.layerGroup.removeLayer(this.trackPositionMarker), 3000);
 
-			setTimeout(() => marker.remove(), 3000);
+			// --- finish position marker ---
+
+			if (finishMarker) {
+				this.trackFinishMarker.setLatLng([data[last][0], data[last][1]]);
+				this.trackFinishMarker.addTo(this.layerGroup);
+			}
 		}
 	}
 
@@ -347,7 +401,7 @@ export default class AppMap {
 		}
 	}
 
-	public moveMarker(d: Date): IPosition | null {
+	public moveMarker(d: Date, setView: boolean): IPosition | null {
 		if (this.deviceMarker === null) return null;
 
 		const position = this.positionByDate(d);
@@ -355,6 +409,10 @@ export default class AppMap {
 		this.deviceMarker.setLatLng(position.latLng);
 
 		this.setMarkerInfo(this.deviceMarker, position.angle, position.speed, position.dist, '');
+
+		if (setView) {
+			this.map.setView(position.latLng, this.map.getZoom());
+		}
 
 		return position;
 	}

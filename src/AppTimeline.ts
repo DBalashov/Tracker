@@ -1,4 +1,6 @@
 export default class AppTimeline {
+	private readonly colorMove = '#bdc3c7';
+	private readonly colorStop = '#2980b9';
 	private readonly container: HTMLElement;
 	private readonly status: HTMLElement;
 	private readonly cursorTop: HTMLElement;
@@ -110,16 +112,15 @@ export default class AppTimeline {
 		}
 
 		// --- Stops ---
-		/*
+
 		startTime = minTime;
 
 		const gradients: string[] = [];
 		let currentWidth = 0;
-		let currentColor = '';
+		let prevPosition = 0;
 
-		speed = speed.map((s) => s > 1 ? s : 0);
+		speed = speed.map((s) => Math.round(s));
 
-		n = 0;
 		for (let i = 0; i < speed.length - 1; i++) {
 			let endTime = this.times[i + 1].getTime();
 
@@ -129,32 +130,26 @@ export default class AppTimeline {
 				continue;
 			}
 
-			if (speed[i] === 0) {
-				gradients.push('#00f' + ' 0% ' + currentWidth + '%');debugger;
-				startTime = endTime;
-				n += currentWidth;
-			} else {
-				gradients.push('#eee' + ' 0% ' + currentWidth + '%');
-				startTime = endTime;
-				n += currentWidth;
-			}
+			gradients.push((speed[i] === 0 ? this.colorStop : this.colorMove) + ' ' + prevPosition + '% ' + (prevPosition + currentWidth) + '%');
+			startTime = endTime;
+			prevPosition += currentWidth;
 		}
-		//gradients.push('#eee' + ' ' + (100 - n) + '%');
-
-		console.log(gradients.join(','));
 
 		if (gradients.length > 0) {
+			gradients.push((speed[speed.length - 1] === 0 ? this.colorStop : this.colorMove) + ' ' + prevPosition + '%');
 			this.status.style.backgroundImage = 'linear-gradient(to right,' + gradients.join(',') + ')';
 		}
-		*/
 	}
 
-	public setValue(value: Date): void {
+	public setValue(value: Date | null): void {
+		this.value = value;
+
+		if (value === null) return;
+
 		const offset = value.getTime() - this.times[0].getTime();
 		const period = this.times[this.times.length - 1].getTime() - this.times[0].getTime();
 		const d = period / offset;
 
-		this.value = value;
 		this.setCursor(value, 100 / d);
 	}
 
