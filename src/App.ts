@@ -117,6 +117,8 @@ export default class App {
 			ED: this.fmtDT(ed),
 			tripSplitterIndex: -1
 		}, (r) => {
+			this.progress(false);
+			
 			if (r[this.id].length === 0 || ! r[this.id][0] || r[this.id][0].DT.length == 0) {
 				this.map.clear();
 				this.timeline.hide();
@@ -143,8 +145,6 @@ export default class App {
 			if (this.refreshActive) {
 				this.refreshTimeout = setTimeout(() => this.refreshTrack(false), this.refreshTime);
 			}
-
-			this.progress(false);
 		});
 	}
 
