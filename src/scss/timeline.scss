@@ -15,9 +15,37 @@
 	}
 
 	&__status {
+		position: relative;
 		height: 8px;
-		background: #bdc3c7;
 		cursor: pointer;
+		z-index: 0;
+
+		&:before,
+		&:after {
+			content: '';
+			position: absolute;
+			left: 0;
+			top: 0;
+			right: 0;
+			bottom: 0;
+		}
+
+		&:before {
+			z-index: -2;
+			background: #bdc3c7;
+		}
+
+		&:after {
+			z-index: 1;
+		}
+
+		i {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			background: #2980b9;
+			z-index: -1;
+		}
 	}
 
 	&__date {

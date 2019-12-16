@@ -22,6 +22,7 @@ export default class AppMap {
 		pane: AppMap.TRACK_ARROW_PANE,
 		radius: 5,
 		weight: 2,
+		color: '#16a085',
 		fillColor: 'white',
 		fillOpacity: 1
 	});
@@ -356,7 +357,8 @@ export default class AppMap {
 
 			// --- device marker ---
 
-			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, 0, 0, 0, '');
+			const angle = last > 0 ? (<any>L).GeometryUtil.angle(this.map, [data[last - 1][0], data[last - 1][1]], [data[last][0], data[last][1]]) : 0;
+			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, angle, 0, 0, '');
 			
 			// --- start position marker ---
 
