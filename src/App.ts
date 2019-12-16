@@ -130,13 +130,13 @@ export default class App {
 
 			let lastTime = this.timeline.getValue();
 
-			this.map.buildTrack(track, this.data[this.id], this.device.location || focus, ! this.refreshActive);
-
-			this.timeline.setData(track.DT, track.Speed);
-
 			if (this.device.location || lastTime === null) {
 				lastTime = new Date(track.DT[track.DT.length - 1]);
 			}
+
+			this.map.buildTrack(track, this.data[this.id], lastTime, this.device.location || focus, ! this.refreshActive);
+
+			this.timeline.setData(track.DT, track.Speed);
 
 			this.timeline.setValue(lastTime);
 

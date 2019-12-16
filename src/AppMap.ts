@@ -255,7 +255,7 @@ export default class AppMap {
 		this.layerGroup.clearLayers();
 	}
 
-	public buildTrack(track: ITrack, item: IDeviceItem, focus: boolean, finishMarker: boolean): void {
+	public buildTrack(track: ITrack, item: IDeviceItem, lastTime: Date, focus: boolean, finishMarker: boolean): void {
 		this.track = track;
 
 		let lastLatLng = null;
@@ -357,8 +357,9 @@ export default class AppMap {
 
 			// --- device marker ---
 
-			const angle = last > 0 ? (<any>L).GeometryUtil.angle(this.map, [data[last - 1][0], data[last - 1][1]], [data[last][0], data[last][1]]) : 0;
-			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, angle, 0, 0, '');
+			const position: IPosition = this.positionByDate(lastTime);
+
+			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, position.angle, position.speed, position.dist, '');
 			
 			// --- start position marker ---
 
