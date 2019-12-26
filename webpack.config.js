@@ -3,6 +3,7 @@ const TerserJSPlugin = require('terser-webpack-plugin');
 const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = {
 	mode: 'production',
@@ -83,6 +84,12 @@ module.exports = {
 			hash: true,
 			template: './src/index.html',
 			filename: './index.html'
-		})
+		}),
+		new CopyPlugin([
+			{ from: './src/favicon.ico' },
+			{ from: './src/manifest.json' },
+			{ from: './src/sw.js' },
+			{ from: './dist/**/*', to: '../WebMap4/MapK/AppTemplates/Tracker' }
+		])
 	]
 };

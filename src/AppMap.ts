@@ -235,6 +235,8 @@ export default class AppMap {
 			this.map.removeLayer(this.currentLayer);
 		}
 
+		this.map.options.crs = config.opt.crs ? config.opt.crs : L.CRS.EPSG3857;
+
 		this.currentLayer = L.tileLayer(config.url, config.opt);
 
 		this.map.addLayer(this.currentLayer);

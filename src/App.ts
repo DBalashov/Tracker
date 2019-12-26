@@ -26,6 +26,20 @@ export default class App {
 	private data: IEnumDevices = {};
 
 	constructor(config: any) {
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.register(config.Urls.Relative + '/sw.js').then((reg) => {
+				if (reg.installing) {
+					//console.log('Service worker installing');
+				} else if (reg.waiting) {
+					//console.log('Service worker installed');
+				} else if (reg.active) {
+					//console.log('Service worker active');
+				}
+			}).catch((error) => {
+				//console.log('Registration failed with ' + error);
+			});
+		}
+
 		this.serial = +config.Settings.serial;
 		this.url = config.Urls.Service + '/';
 		this.token = config.Token;
@@ -118,7 +132,7 @@ export default class App {
 			tripSplitterIndex: -1
 		}, (r) => {
 			this.progress(false);
-			
+
 			if (r[this.id].length === 0 || ! r[this.id][0] || r[this.id][0].DT.length == 0) {
 				this.map.clear();
 				this.timeline.hide();
