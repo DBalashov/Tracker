@@ -120,6 +120,8 @@ export default class AppTimeline {
 
 		speed = speed.map((s) => Math.round(s));
 
+		this.status.innerHTML = '';
+
 		for (let i = 0; i < speed.length - 1; i++) {
 			let endTime = this.times[i + 1].getTime();
 

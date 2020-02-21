@@ -89,7 +89,7 @@ module.exports = {
 			{ from: './src/favicon.ico' },
 			{ from: './src/manifest.json' },
 			{ from: './src/sw.js' },
-			{ from: './dist/**/*', to: '../WebMap4/MapK/AppTemplates/Tracker' }
+			{ from: '**/*', to: '../../WebMap4/MapK/AppTemplates/Tracker/', context: './dist' }
 		])
 	]
 };
