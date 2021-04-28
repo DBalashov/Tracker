@@ -6,20 +6,35 @@ import 'leaflet-polylinedecorator';
 import { IDeviceItem, IEnumDevices } from '@/App';
 import { ILayerConfig } from '@/AppLayers';
 
+(L as any).Symbol.ArrowHead = (L as any).Symbol.ArrowHead.extend({
+	buildSymbol: function(dirPoint: any, latLngs: L.LatLng[], map: L.Map) {
+		if (this.options.pathOptions.getColor) {
+			const center = L.latLngBounds(latLngs).getCenter();
+			const coord = map.latLngToContainerPoint(center);
+			this.options.pathOptions.fillColor = this.options.pathOptions.getColor(coord);
+		}
+		return this.options.polygon
+			? L.polygon(this._buildArrowPath(dirPoint, map), this.options.pathOptions)
+			: L.polyline(this._buildArrowPath(dirPoint, map), this.options.pathOptions);
+	}
+});
+
 export default class AppMap {
 	private static TRACK_LINE_PANE = 'track-line-pane';
 	private static TRACK_ARROW_PANE = 'track-arrow-pane';
 	private static DEVICE_MARKER_PANE = 'device-marker-pane';
 	private static FLAGS_MARKER_PANE = 'marker-flags-pane';
-	
+
+	private readonly maxTimeDistInterval = 300;
 	private readonly markerTemplate: HTMLTemplateElement;
 	private readonly map: L.Map;
 	private readonly layerGroup: L.LayerGroup = L.layerGroup([], {});
+	private readonly hotlineLayerRenderer: L.Renderer;
 	private readonly urlImage: string;
 	private readonly markerCallback: (id: string) => void;
 	private readonly trackCallback: (d: Date) => void;
 	private readonly trackCursorMarker: L.CircleMarker = L.circleMarker([0, 0], {
-		pane: AppMap.TRACK_ARROW_PANE,
+		pane: AppMap.DEVICE_MARKER_PANE,
 		radius: 5,
 		weight: 2,
 		color: '#16a085',
@@ -43,7 +58,7 @@ export default class AppMap {
 		})
 	});
 	private readonly trackPositionMarker: L.Marker = L.marker([0, 0], {
-		pane: AppMap.TRACK_ARROW_PANE,
+		pane: AppMap.DEVICE_MARKER_PANE,
 		icon: L.divIcon({
 			className: 'marker marker--position',
 			iconSize: [0, 0]
@@ -51,7 +66,6 @@ export default class AppMap {
 	});
 	private readonly distUnit: string = 'км';
 	private readonly speedUnit: string = 'км/ч';
-	private hotlineLayer: L.Polyline | null = null;
 	private deviceMarker: L.Marker | null = null;
 	private track: ITrack | null = null;
 	private currentLayer: L.TileLayer | null = null;
@@ -91,7 +105,7 @@ export default class AppMap {
 		if (trackColors !== null) {
 			this.trackColors = trackColors;
 		}
-		
+
 		// --- panes ---
 
 		[
@@ -102,6 +116,20 @@ export default class AppMap {
 		].forEach((pane: string, i: number) => {
 			this.map.createPane(pane);
 			(this.map.getPane(pane) as HTMLElement).style.zIndex = (600 + 10 * i + 10) + '';
+		});
+
+		this.hotlineLayerRenderer = (L as any).Hotline.renderer({
+			pane: AppMap.TRACK_LINE_PANE
+		});
+
+		this.hotlineLayerRenderer.on('update', () => {
+			setTimeout(() => {
+				Object.entries((this.hotlineLayerRenderer as any)._layers).forEach((layer: any) => {
+					if (layer.arrows) {
+						layer.arrows.redraw();
+					}
+				});
+			}, 10);
 		});
 	}
 
@@ -209,25 +237,23 @@ export default class AppMap {
 		return fz * R;
 	}
 
-	private closestLatLng(latlng: L.LatLngExpression) {
-		const latlngs = (this.hotlineLayer as L.Polyline).getLatLngs();
+	private closestLatLngIndex(layer: L.Polyline, latlng: L.LatLngExpression): number {
+		const latlngs = layer.getLatLngs();
 		let mindist = Infinity;
-		let result = null;
+		let index = 0;
 
 		for (let i = 0, n = latlngs.length; i < n-1; i++) {
 			const latlngA = latlngs[i];
 			const latlngB = latlngs[i+1];
 
-			let distance = (<any>L).GeometryUtil.distanceSegment(this.map, latlng, latlngA, latlngB);
+			const distance = (L as any).GeometryUtil.distanceSegment(this.map, latlng, latlngA, latlngB);
 			if (distance <= mindist) {
 				mindist = distance;
-				result = (<any>L).GeometryUtil.closestOnSegment(this.map, latlng, latlngA, latlngB);
-				result.distance = distance;
-				result.index = i;
+				index = i;
 			}
 		}
 
-		return result;
+		return index;
 	}
 
 	public changeLayer(config: ILayerConfig): void {
@@ -243,11 +269,18 @@ export default class AppMap {
 	}
 
 	public clear(): void {
-		if (this.hotlineLayer !== null) {
-			(<any>this.map).almostOver.removeLayer(this.hotlineLayer);
-			this.hotlineLayer.remove();
-			this.hotlineLayer = null;
-		}
+		this.layerGroup.eachLayer((layer: any) => {
+			(this.map as any).almostOver.removeLayer(layer);
+			if (layer.arrows) {
+				layer.arrows.clearLayers();
+				if (layer.arrows._patterns) {
+					layer.arrows._patterns.forEach((p: any) => delete p.getColor);
+				}
+				delete layer.arrows._patterns;
+				delete layer.arrows;
+				layer.remove();
+			}
+		});
 
 		if (this.deviceMarker !== null) {
 			this.deviceMarker.remove();
@@ -268,118 +301,223 @@ export default class AppMap {
 
 		this.clear();
 
-		const data = [];
 		const speeds = Object.keys(this.trackColors).map((s) => +s);
 		const max = Math.max(...speeds);
 		const plt: ITrackColors = {};
+		const lastIndex = track.DT.length - 1;
+		const hotlinePoints: (number[])[][] = [[]];
+		const hotlineOffset = [0];
+		const arrowOptions = {
+			repeat: '150px',
+			size: 6,
+			polygon: true,
+			opacity: 0.75,
+			color: '#000',
+			weight: 1,
+			fillColor: 'transparent',
+			border: 1,
+			getColor: (coord: L.Point) => {
+				return;
+			}
+		};
 
 		speeds.forEach((s: number) => {
 			plt[s / (max === 0 ? 1 : max)] = this.trackColors[s + ''];
 		});
 
-		for (let i = 0; i < track.Lat.length; i++) {
-			data.push([track.Lat[i], track.Lng[i], track.Speed[i]]);
+		let j = 0;
+
+		for (let i = 1; i <= lastIndex; i++) {
+			const d1 = new Date(track.DT[i - 1]);
+			const d2 = new Date(track.DT[i]);
+
+			if ((d2.getTime() - d1.getTime()) / 1000 > this.maxTimeDistInterval) {
+				const dashedLine = L.polyline([
+					[track.Lat[i - 1], track.Lng[i - 1]],
+					[track.Lat[i], track.Lng[i]]
+				], {
+					color: '#777',
+					lineCap: 'butt',
+					weight: 2,
+					dashArray: '4,4',
+					pane: AppMap.TRACK_LINE_PANE
+				});
+
+				this.layerGroup.addLayer(dashedLine);
+
+				j++;
+
+				hotlinePoints[j] = [];
+				hotlineOffset[j] = i;
+			} else {
+				if (i == 1) {
+					hotlinePoints[j].push([track.Lat[0], track.Lng[0], track.Speed[0]]);
+				}
+
+				hotlinePoints[j].push([track.Lat[i], track.Lng[i], track.Speed[i]]);
+			}
 		}
 
-		if (data.length > 0) {
+		if (hotlinePoints[j].length > 0) {
+			const lastIndex = track.DT.length - 1;
+			hotlinePoints[j].push([track.Lat[lastIndex], track.Lng[lastIndex], track.Speed[lastIndex]]);
+		}
+
+		hotlinePoints.forEach((p: number[][], i: number) => {
+			if (p.length < 2) return;
+
 			const options = {
-				pane: AppMap.TRACK_LINE_PANE,
+				renderer: this.hotlineLayerRenderer,
 				min: 0,
 				max: max,
 				palette: plt,
 				weight: 4,
-				outlineColor: '#000000',
+				outlineColor: '#000',
 				outlineWidth: 0.5,
 				clickable: true,
 				smoothFactor: 0.25,
-				pntIndexOffset: 0
+				pntIndexOffset: hotlineOffset[i]
 			};
-			const last = data.length - 1;
+			const hotlineLayer = (<any>L).hotline(p, options).addTo(this.layerGroup);
 
-			this.hotlineLayer = (<any>L).hotline(data, options).addTo(this.layerGroup);
+			this.layerGroup.addLayer(hotlineLayer);
 
-			(<any>L).polylineDecorator(this.hotlineLayer, {
-				pane: AppMap.TRACK_ARROW_PANE,
-				patterns: [{
-					offset: '50px',
-					repeat: '150px',
-					symbol: (<any>L).Symbol.arrowHead({
-						pixelSize: 7,
-						polygon: true,
-						pathOptions: {
-							opacity: 0.9,
-							color: '#2c3e50',
-							weight: 1,
-							fillColor: '#ecf0f1',
-							fill: true,
-							fillOpacity: 1
-						}
-					}),
-					border: true,
-					fill: false,
-					getColor: null
-				}]
-			}).addTo(this.layerGroup);
+			(<any>this.map).almostOver.addLayer(hotlineLayer);
 
-			(<any>this.map).almostOver.addLayer(this.hotlineLayer);
+			// ---
 
-			this.map
-				.on('almost:over', () => {
-					this.layerGroup.addLayer(this.trackCursorMarker);
-				})
-				.on('almost:move', (e: any) => {
-					this.trackCursorMarker.setLatLng(e.latlng);
-				})
-				.on('almost:out', () => {
-					this.layerGroup.removeLayer(this.trackCursorMarker);
-				})
-				.on('almost:click', (e: any) => {
-					const r = this.closestLatLng(e.latlng);
-					const pnts = e.layer.getLatLngs();
-					const index = r.index;
-					const length = pnts[index].distanceTo(pnts[index + 1]);
-					const pos = pnts[index].distanceTo(e.latlng);
-					const ratio = length > 0 ? pos / length : 1;
-					const t1 = new Date((this.track as ITrack).DT[index]).getTime();
-					const t2 = new Date((this.track as ITrack).DT[index + 1]).getTime();
-					const d = new Date();
+			const hotlineCanvas: any = (this.hotlineLayerRenderer as any)._container;
 
-					d.setTime((t1 * (1 - ratio)) + (ratio * t2));
+			hotlineCanvas.style.zIndex = null;
 
-					this.trackCallback(d);
+			const hotlineCtx = (this.hotlineLayerRenderer as any)._ctx;
+
+			const element = this.map.getContainer();
+			const offsetLeft = (hotlineCanvas.width - element.clientWidth) / 2;
+			const offsetTop = (hotlineCanvas.height - element.clientHeight) / 2;
+
+			if (window.devicePixelRatio > 1) arrowOptions.size = 6;
+
+			arrowOptions.getColor = (coord: L.Point) => {
+				let p = [0, 0, 0, 0];
+
+				if (!window.devicePixelRatio || window.devicePixelRatio == 1) {
+					coord.x += offsetLeft;
+					coord.y += offsetTop;
+
+					p = hotlineCtx.getImageData(coord.x, coord.y, 1, 1).data;
+				}
+
+				return 'rgba(' + p[0] + ',' + p[1] + ',' + p[2] + ',' + (p[3] / 255) + ')';
+			};
+
+			// ---
+
+			hotlineCanvas.style.zIndex = '0'; // FFox
+
+			const getArrowSymbol = (options: any) => {
+				return (L as any).Symbol.arrowHead({
+					pixelSize: options.size,
+					polygon: options.polygon,
+					pathOptions: {
+						opacity: options.opacity,
+						color: options.color,
+						weight: options.weight,
+						fillColor: options.fillColor,
+						fill: true,
+						fillOpacity: 1,
+						pane: AppMap.TRACK_ARROW_PANE,
+						getColor: arrowOptions.getColor
+					}
 				});
-
-			if (focus || lastLatLng === null) {
-				const zoom = lastLatLng === null ? 16 : this.map.getZoom();
-
-				lastLatLng = L.latLng(data[last][0], data[last][1]);
-				//this.map.fitBounds((this.hotlineLayer as L.Polyline).getBounds(), { padding: [100, 100] });
-				this.map.setView(lastLatLng, zoom);
 			}
+			const arrows = (L as any).polylineDecorator(hotlineLayer, {
+				patterns: [
+					{
+						offset: 0,
+						repeat: arrowOptions.repeat,
+						symbol: getArrowSymbol(Object.assign({}, arrowOptions, {
+								color: 'white',
+								weight: 5,
+								opacity: 0.5
+							})
+						),
+						border: true,
+						fill: false,
+						getColor: null
+					},
+					{
+						offset: 0,
+						repeat: arrowOptions.repeat,
+						symbol: getArrowSymbol(arrowOptions),
+						border: arrowOptions.border,
+						fill: true,
+						getColor: arrowOptions.getColor
+					}]
+			});
 
-			// --- device marker ---
+			this.layerGroup.addLayer(arrows);
+			hotlineLayer['arrows'] = arrows;
+		});
 
-			const position: IPosition = this.positionByDate(lastTime);
+		this.map
+		.on('almost:over', () => {
+			this.layerGroup.addLayer(this.trackCursorMarker);
+		})
+		.on('almost:move', (e: any) => {
+			this.trackCursorMarker.setLatLng(e.latlng);
+		})
+		.on('almost:out', () => {
+			this.layerGroup.removeLayer(this.trackCursorMarker);
+		})
+		.on('almost:click', (e: any) => {
+			if (!this.track) return;
+			const pnts = this.track.DT.map((d, i) => L.latLng((this.track as ITrack).Lat[i], (this.track as ITrack).Lng[i]));
+			const index = this.closestLatLngIndex(e.layer, e.latlng);
+			let indexTrack = index + e.layer.options.pntIndexOffset;
+			if (indexTrack < pnts.length - 2) indexTrack++;
+			const length = pnts[indexTrack].distanceTo(pnts[indexTrack + 1]);
+			const pos = pnts[indexTrack].distanceTo(e.latlng);
+			const ratio = length > 0 ? pos / length : 1;
+			const t1 = new Date((this.track as ITrack).DT[indexTrack]).getTime();
+			const t2 = new Date((this.track as ITrack).DT[indexTrack + 1]).getTime();
+			const d = new Date();
 
-			this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, position.angle, position.speed, position.dist, '');
-			
-			// --- start position marker ---
+			d.setTime(t1 + (t2 - t1) * ratio);
 
-			this.trackStartMarker.setLatLng([data[0][0], data[0][1]]);
-			this.trackStartMarker.addTo(this.layerGroup);
+			this.trackCallback(d);
+		});
 
-			// --- last position marker ---
+		if (focus || lastLatLng === null) {
+			const zoom = lastLatLng === null ? 16 : this.map.getZoom();
 
-			this.trackPositionMarker.setLatLng([data[last][0], data[last][1]]);
-			this.trackPositionMarker.addTo(this.layerGroup);
-			setTimeout(() => this.layerGroup.removeLayer(this.trackPositionMarker), 3000);
+			lastLatLng = L.latLng(track.Lat[lastIndex], track.Lng[lastIndex]);
+			//this.map.fitBounds((this.hotlineLayer as L.Polyline).getBounds(), { padding: [100, 100] });
+			this.map.setView(lastLatLng, zoom);
+		}
 
-			// --- finish position marker ---
+		// --- device marker ---
 
-			if (finishMarker) {
-				this.trackFinishMarker.setLatLng([data[last][0], data[last][1]]);
-				this.trackFinishMarker.addTo(this.layerGroup);
-			}
+		const position: IPosition = this.positionByDate(lastTime);
+
+		this.buildMarker(item.ID, lastLatLng, item.ImageColored as string, item.Name, position.angle, position.speed, position.dist, '');
+
+		// --- start position marker ---
+
+		this.trackStartMarker.setLatLng([track.Lat[0], track.Lng[0]]);
+		this.trackStartMarker.addTo(this.layerGroup);
+
+		// --- last position marker ---
+
+		this.trackPositionMarker.setLatLng([track.Lat[lastIndex], track.Lng[lastIndex]]);
+		this.trackPositionMarker.addTo(this.layerGroup);
+		setTimeout(() => this.layerGroup.removeLayer(this.trackPositionMarker), 3000);
+
+		// --- finish position marker ---
+
+		if (finishMarker) {
+			this.trackFinishMarker.setLatLng([track.Lat[lastIndex], track.Lng[lastIndex]]);
+			this.trackFinishMarker.addTo(this.layerGroup);
 		}
 	}
 

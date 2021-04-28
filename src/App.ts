@@ -177,12 +177,12 @@ export default class App {
 	}
 
 	private fmtDT(d: Date) {
-		const mm = d.getUTCMonth() + 1;
-		const dd = d.getUTCDate();
-		const hh = d.getUTCHours();
-		const mi = d.getUTCMinutes();
+		const mm = d.getMonth() + 1;
+		const dd = d.getDate();
+		const hh = d.getHours();
+		const mi = d.getMinutes();
 
-		return d.getUTCFullYear() + (mm > 9 ? '' : '0') + mm + (dd > 9 ? '' : '0') + dd + '-' + (hh > 9 ? '' : '0') + hh + (mi > 9 ? '' : '0') + mi;
+		return d.getFullYear() + (mm > 9 ? '' : '0') + mm + (dd > 9 ? '' : '0') + dd + '-' + (hh > 9 ? '' : '0') + hh + (mi > 9 ? '' : '0') + mi;
 	}
 
 	private post(method: string, data: any, callback: (r: any) => void) {
