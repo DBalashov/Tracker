@@ -1,5 +1,3 @@
-import {EventBus} from "../../mobi/src/app";
-
 export default class AppTimeline {
 	private readonly container: HTMLElement;
 	private readonly status: HTMLElement;
